@@ -3,6 +3,8 @@ import contextlib
 import logging
 import socket
 import time
+from dataclasses import dataclass
+from typing import List
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -10,6 +12,16 @@ __version__ = "0.1.1"
 
 
 MAX_UPDATES_WITHOUT_RESPONSE = 4
+
+
+@dataclass
+class Device30303:
+    """A device discovered via port 30303."""
+
+    hostname: str
+    mac: str
+    ipaddress: str
+    model: str
 
 
 def normalize_mac(mac: str) -> str:
@@ -45,7 +57,7 @@ class AIODiscovery30303:
 
     def __init__(self):
         self.loop = asyncio.get_running_loop()
-        self.found_devices = []
+        self.found_devices: List[dict[str, str]] = []
 
     def _create_socket(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -76,12 +88,12 @@ class AIODiscovery30303:
             return
         if from_address[0] in response_list:
             return
-        response_list[from_address] = {
-            "hostname": data_split[0].rstrip(),
-            "ipaddr": from_address[0],
-            "mac": normalize_mac(data_split[1].rstrip()),
-            "model": data_split[2].split("\x00")[0].rstrip(),
-        }
+        response_list[from_address] = Device30303(
+            hostname=data_split[0].rstrip(),
+            ipaddress=from_address[0],
+            mac=normalize_mac(data_split[1].rstrip()),
+            model=data_split[2].split("\x00")[0].rstrip(),
+        )
         return from_address[0] == address
 
     async def _async_run_scan(self, transport, destination, timeout, found_all_future):
@@ -134,5 +146,5 @@ class AIODiscovery30303:
         finally:
             transport.close()
 
-        self.found_devices = response_list.values()
-        return list(self.found_devices)
+        self.found_devices = list(response_list.values())
+        return self.found_devices

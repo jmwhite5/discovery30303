@@ -1,11 +1,10 @@
 import asyncio
 import contextlib
-import pprint
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from discovery30303 import AIODiscovery30303, Discovery30303
+from discovery30303 import AIODiscovery30303, Device30303, Discovery30303
 
 
 @pytest.fixture
@@ -40,9 +39,39 @@ async def test_async_scanner_specific_address(mock_discovery_aio_protocol):
     task = asyncio.ensure_future(
         scanner.async_scan(timeout=10, address="192.168.213.252")
     )
-    transport, protocol = await mock_discovery_aio_protocol()
+    _, protocol = await mock_discovery_aio_protocol()
     protocol.datagram_received(
-        b"192.168.213.252,B4E842E10588,AK001-ZJ2145", ("192.168.213.252", 48899)
+        b"MY450-6340     \r\n00-1E-C0-38-63-40\r\nMaster Bath\x00   \x00",
+        ("192.168.213.252", 48899),
     )
-    data = await task
-    pprint.pprint(data)
+    await task
+    assert scanner.found_devices == [
+        Device30303(
+            hostname="MY450-6340",
+            ipaddress="192.168.213.252",
+            mac="00:1E:C0:38:63:40",
+            model="Master Bath",
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_async_scanner_broadcast(mock_discovery_aio_protocol):
+    """Test scanner with a broadcast."""
+    scanner = AIODiscovery30303()
+
+    task = asyncio.ensure_future(scanner.async_scan(timeout=0.01))
+    _, protocol = await mock_discovery_aio_protocol()
+    protocol.datagram_received(
+        b"MY450-6340     \r\n00-1E-C0-38-63-40\r\nMaster Bath\x00   \x00",
+        ("192.168.213.252", 48899),
+    )
+    await task
+    assert scanner.found_devices == [
+        Device30303(
+            hostname="MY450-6340",
+            ipaddress="192.168.213.252",
+            mac="00:1E:C0:38:63:40",
+            model="Master Bath",
+        )
+    ]
