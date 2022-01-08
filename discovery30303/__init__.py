@@ -3,7 +3,7 @@ import logging
 import socket
 import time
 from dataclasses import dataclass
-from typing import List
+from typing import Callable, Dict, List, Optional, Tuple
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,20 +42,24 @@ def normalize_mac(mac: str) -> str:
 
 
 class Discovery30303(asyncio.DatagramProtocol):
-    def __init__(self, destination, on_response):
+    def __init__(
+        self,
+        destination: Tuple[str, int],
+        on_response: Callable[[bytes, Tuple[str, int]], None],
+    ) -> None:
         self.transport = None
         self.destination = destination
         self.on_response = on_response
 
-    def datagram_received(self, data, addr) -> None:
+    def datagram_received(self, data: bytes, addr: Tuple[str, int]) -> None:
         """Trigger on_response."""
         self.on_response(data, addr)
 
-    def error_received(self, ex):
+    def error_received(self, ex: Optional[Exception]) -> None:
         """Handle error."""
         _LOGGER.error("Discovery30303 error: %s", ex)
 
-    def connection_lost(self, ex):
+    def connection_lost(self, ex: Optional[Exception]) -> None:
         """Do nothing on connection lost."""
 
 
@@ -68,15 +72,21 @@ class AIODiscovery30303:
     DISCOVER_MESSAGE = b"Discovery: Who is out there?"
     BROADCAST_ADDRESS = "<broadcast>"
 
-    def __init__(self):
-        self.found_devices: List[dict[str, str]] = []
+    def __init__(self) -> None:
+        self.found_devices: List[Dict[str, Device30303]] = []
 
-    def _destination_from_address(self, address):
+    def _destination_from_address(self, address: Optional[str]) -> Tuple[str, int]:
         if address is None:
             address = self.BROADCAST_ADDRESS
         return (address, self.DISCOVERY_PORT)
 
-    def _process_response(self, data, from_address, address, response_list):
+    def _process_response(
+        self,
+        data: Optional[bytes],
+        from_address: Tuple[str, int],
+        address: Optional[str],
+        response_list: Dict[str, Device30303],
+    ) -> bool:
         """Process a response.
 
         Returns True if processing should stop
@@ -94,7 +104,13 @@ class AIODiscovery30303:
         )
         return from_address[0] == address
 
-    async def _async_run_scan(self, transport, destination, timeout, found_all_future):
+    async def _async_run_scan(
+        self,
+        transport: asyncio.DatagramTransport,
+        destination: Tuple[str, int],
+        timeout: int,
+        found_all_future: "asyncio.Future[bool]",
+    ) -> None:
         """Send the scans."""
         _LOGGER.debug("discover: %s => %s", destination, self.DISCOVER_MESSAGE)
         transport.sendto(self.DISCOVER_MESSAGE, destination)
@@ -118,14 +134,16 @@ class AIODiscovery30303:
                 return  # found_all
             remain_time = quit_time - time.monotonic()
 
-    async def async_scan(self, timeout=10, address=None):
+    async def async_scan(
+        self, timeout: int = 10, address: Optional[str] = None
+    ) -> List[Dict[str, Device30303]]:
         """Discover on port 30303."""
         sock = create_udp_socket(self.DISCOVERY_PORT)
         destination = self._destination_from_address(address)
         found_all_future = asyncio.Future()
         response_list = {}
 
-        def _on_response(data, addr):
+        def _on_response(data: bytes, addr: Tuple[str, int]) -> None:
             _LOGGER.debug("discover: %s <= %s", addr, data)
             if self._process_response(data, addr, address, response_list):
                 found_all_future.set_result(True)
