@@ -1,5 +1,4 @@
 import asyncio
-import contextlib
 import logging
 import socket
 import time
@@ -21,7 +20,21 @@ class Device30303:
     hostname: str
     mac: str
     ipaddress: str
-    model: str
+    name: str
+
+
+def create_udp_socket(discovery_port: int) -> socket.socket:
+    """Create a udp socket used for communicating with the device."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    try:
+        # Legacy devices require source port to be the discovery port
+        sock.bind(("", discovery_port))
+    except OSError as err:
+        _LOGGER.debug("Port %s is not available: %s", discovery_port, err)
+        sock.bind(("", 0))
+    sock.setblocking(False)
+    return sock
 
 
 def normalize_mac(mac: str) -> str:
@@ -43,7 +56,7 @@ class Discovery30303(asyncio.DatagramProtocol):
         _LOGGER.error("Discovery30303 error: %s", ex)
 
     def connection_lost(self, ex):
-        pass
+        """Do nothing on connection lost."""
 
 
 class AIODiscovery30303:
@@ -56,18 +69,7 @@ class AIODiscovery30303:
     BROADCAST_ADDRESS = "<broadcast>"
 
     def __init__(self):
-        self.loop = asyncio.get_running_loop()
         self.found_devices: List[dict[str, str]] = []
-
-    def _create_socket(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        with contextlib.suppress(Exception):
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        sock.bind(("", self.DISCOVERY_PORT))
-        sock.setblocking(0)
-        return sock
 
     def _destination_from_address(self, address):
         if address is None:
@@ -79,20 +81,16 @@ class AIODiscovery30303:
 
         Returns True if processing should stop
         """
-        if data is None:
-            return
-        if data == self.DISCOVER_MESSAGE:
+        if data is None or data == self.DISCOVER_MESSAGE:
             return
         data_split = data.decode("utf-8").split("\r\n")
-        if len(data_split) < 3:
-            return
-        if from_address[0] in response_list:
+        if len(data_split) < 3 or from_address[0] in response_list:
             return
         response_list[from_address] = Device30303(
             hostname=data_split[0].rstrip(),
             ipaddress=from_address[0],
             mac=normalize_mac(data_split[1].rstrip()),
-            model=data_split[2].split("\x00")[0].rstrip(),
+            name=data_split[2].split("\x00")[0].rstrip(),
         )
         return from_address[0] == address
 
@@ -122,7 +120,7 @@ class AIODiscovery30303:
 
     async def async_scan(self, timeout=10, address=None):
         """Discover on port 30303."""
-        sock = self._create_socket()
+        sock = create_udp_socket(self.DISCOVERY_PORT)
         destination = self._destination_from_address(address)
         found_all_future = asyncio.Future()
         response_list = {}
@@ -132,7 +130,7 @@ class AIODiscovery30303:
             if self._process_response(data, addr, address, response_list):
                 found_all_future.set_result(True)
 
-        transport, _ = await self.loop.create_datagram_endpoint(
+        transport, _ = await asyncio.get_running_loop().create_datagram_endpoint(
             lambda: Discovery30303(
                 destination=destination,
                 on_response=_on_response,

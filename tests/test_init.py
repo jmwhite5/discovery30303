@@ -4,7 +4,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from discovery30303 import AIODiscovery30303, Device30303, Discovery30303
+from discovery30303 import (
+    AIODiscovery30303,
+    Device30303,
+    Discovery30303,
+    create_udp_socket,
+)
 
 
 @pytest.fixture
@@ -50,7 +55,7 @@ async def test_async_scanner_specific_address(mock_discovery_aio_protocol):
             hostname="MY450-6340",
             ipaddress="192.168.213.252",
             mac="00:1E:C0:38:63:40",
-            model="Master Bath",
+            name="Master Bath",
         )
     ]
 
@@ -72,6 +77,15 @@ async def test_async_scanner_broadcast(mock_discovery_aio_protocol):
             hostname="MY450-6340",
             ipaddress="192.168.213.252",
             mac="00:1E:C0:38:63:40",
-            model="Master Bath",
+            name="Master Bath",
         )
     ]
+
+
+@pytest.mark.asyncio
+async def test_async_scanner_falls_back_to_any_source_port_if_socket_in_use():
+    """Test port fallback."""
+    hold_socket = create_udp_socket(AIODiscovery30303.DISCOVERY_PORT)
+    assert hold_socket.getsockname() == ("0.0.0.0", 30303)
+    random_socket = create_udp_socket(AIODiscovery30303.DISCOVERY_PORT)
+    assert random_socket.getsockname() != ("0.0.0.0", 30303)
