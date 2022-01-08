@@ -73,7 +73,7 @@ class AIODiscovery30303:
     BROADCAST_ADDRESS = "<broadcast>"
 
     def __init__(self) -> None:
-        self.found_devices: List[Dict[str, Device30303]] = []
+        self.found_devices: List[Device30303] = []
 
     def _destination_from_address(self, address: Optional[str]) -> Tuple[str, int]:
         if address is None:
@@ -136,7 +136,7 @@ class AIODiscovery30303:
 
     async def async_scan(
         self, timeout: int = 10, address: Optional[str] = None
-    ) -> List[Dict[str, Device30303]]:
+    ) -> List[Device30303]:
         """Discover on port 30303."""
         sock = create_udp_socket(self.DISCOVERY_PORT)
         destination = self._destination_from_address(address)
