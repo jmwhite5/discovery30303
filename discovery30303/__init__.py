@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 _LOGGER = logging.getLogger(__name__)
 
-__version__ = "0.2.1"
+__version__ = "0.2.1-jm"
 
 
 MAX_UPDATES_WITHOUT_RESPONSE = 4
@@ -21,6 +21,7 @@ class Device30303:
     mac: str
     ipaddress: str
     name: str
+    additional_data: Dict[str, str]
 
 
 def create_udp_socket(discovery_port: int) -> socket.socket:
@@ -61,6 +62,7 @@ class Discovery30303(asyncio.DatagramProtocol):
 
     def connection_lost(self, ex: Optional[Exception]) -> None:
         """Do nothing on connection lost."""
+        print("Connection Lost")
 
 
 class AIODiscovery30303:
@@ -69,7 +71,8 @@ class AIODiscovery30303:
     DISCOVERY_PORT = 30303
     BROADCAST_FREQUENCY = 3
     RESPONSE_SIZE = 64
-    DISCOVER_MESSAGE = b"Discovery: Who is out there?"
+    # DISCOVER_MESSAGE = b"Discovery: Who is out there?"
+    DISCOVER_MESSAGE = b"stdisc"
     BROADCAST_ADDRESS = "<broadcast>"
 
     def __init__(self) -> None:
@@ -88,20 +91,38 @@ class AIODiscovery30303:
         response_list: Dict[str, Device30303],
     ) -> bool:
         """Process a response.
-
         Returns True if processing should stop
         """
         if data is None or data == self.DISCOVER_MESSAGE:
             return
-        data_split = data.decode("utf-8").split("\r\n")
-        if len(data_split) < 3 or from_address[0] in response_list:
-            return
-        response_list[from_address] = Device30303(
-            hostname=data_split[0].rstrip(),
-            ipaddress=from_address[0],
-            mac=normalize_mac(data_split[1].rstrip()),
-            name=data_split[2].split("\x00")[0].rstrip(),
-        )
+
+        if data[0:7] == b'STM 550':
+            #Model TSC 550
+            status_data = {}
+            status_data["temperature"] = data[7:10].decode("utf-8").strip()
+            status_data["temp_unit"] = data[10:11].decode("utf-8")
+            status_data["profile"] = data[11:12].decode("utf-8")
+            status_data["minutesleft"] = data[12:14].decode("utf-8").strip()
+            status_data["secondsleft"] = data[14:16].decode("utf-8").strip()
+            response_list[from_address] = Device30303(
+                hostname='Unavailable',
+                ipaddress=from_address[0],
+                mac=normalize_mac(data[16:33].decode("utf-8")),
+                name=data[33:].split(b'\x00')[0].decode("utf-8"),
+                additional_data=status_data
+            )
+        else:
+            #Prior models (e.g. 450)
+            data_split = data.decode("utf-8").split("\r\n")
+            if len(data_split) < 3 or from_address[0] in response_list:
+                return
+            response_list[from_address] = Device30303(
+                hostname=data_split[0].rstrip(),
+                ipaddress=from_address[0],
+                mac=normalize_mac(data_split[1].rstrip()),
+                name=data_split[2].split("\x00")[0].rstrip(),
+                additional_data={},
+            )
         return from_address[0] == address
 
     async def _async_run_scan(

@@ -42,6 +42,7 @@ black = "^21.11b1"
 flake8 = "^4.0.0"
 isort = "^5.10.1"
 pytest = "^6.1.2"
+pytest-asyncio = "0.20.3"
 pytest-cov = "^3.0.0"
 pyupgrade = "^2.29.1"
 tox = "^3.20.1"
@@ -54,6 +55,7 @@ build_command = "pip install poetry && poetry build"
 
 [tool.pytest.ini_options]
 addopts = "-v -Wdefault --cov=discovery30303"
+log_cli = true
 
 [tool.isort]
 profile = "black"
