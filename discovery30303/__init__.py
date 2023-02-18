@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 _LOGGER = logging.getLogger(__name__)
 
-__version__ = "0.2.1+jm1"
+__version__ = "0.2.1+jm2"
 
 
 MAX_UPDATES_WITHOUT_RESPONSE = 4
@@ -73,7 +73,7 @@ class AIODiscovery30303:
     RESPONSE_SIZE = 64
     # DISCOVER_MESSAGE = b"Discovery: Who is out there?"
     DISCOVER_MESSAGE = b"stdisc"
-    BROADCAST_ADDRESS = "<broadcast>"
+    BROADCAST_ADDRESS = "255.255.255.255"
 
     def __init__(self) -> None:
         self.found_devices: List[Device30303] = []
