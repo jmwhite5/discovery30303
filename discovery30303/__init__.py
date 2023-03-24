@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 _LOGGER = logging.getLogger(__name__)
 
-__version__ = "0.2.1+jm2"
+__version__ = "0.2.1+jm3"
 
 
 MAX_UPDATES_WITHOUT_RESPONSE = 4
@@ -73,7 +73,10 @@ class AIODiscovery30303:
     RESPONSE_SIZE = 64
     # DISCOVER_MESSAGE = b"Discovery: Who is out there?"
     DISCOVER_MESSAGE = b"stdisc"
-    BROADCAST_ADDRESS = "255.255.255.255"
+    # For regular setup, use the local broadcast address
+    #  BROADCAST_ADDRESS = "255.255.255.255"
+    # For development in a container, use the directed broadcast address
+    BROADCAST_ADDRESS = "192.168.1.255"
 
     def __init__(self) -> None:
         self.found_devices: List[Device30303] = []
@@ -99,11 +102,11 @@ class AIODiscovery30303:
         if data[0:7] == b'STM 550':
             #Model TSC 550
             status_data = {}
-            status_data["temperature"] = data[7:10].decode("utf-8").strip()
+            status_data["temperature"] = int(data[7:10].decode("utf-8").strip())
             status_data["temp_unit"] = data[10:11].decode("utf-8")
-            status_data["profile"] = data[11:12].decode("utf-8")
-            status_data["minutesleft"] = data[12:14].decode("utf-8").strip()
-            status_data["secondsleft"] = data[14:16].decode("utf-8").strip()
+            status_data["profile"] = int(data[11:12].decode("utf-8"))
+            status_data["minutesleft"] = int(data[12:14].decode("utf-8").strip())
+            status_data["secondsleft"] = int(data[14:16].decode("utf-8").strip())
             response_list[from_address] = Device30303(
                 hostname='Unavailable',
                 ipaddress=from_address[0],

@@ -12,6 +12,15 @@ from discovery30303 import (
     create_udp_socket,
 )
 
+@pytest.fixture
+def model_550_response() -> bytearray:
+    """Steamist Controller Model 550 Response String"""
+    return b"STM 550 68F1145600-D0-CA-01-A9-41Master Bath\x00\x00\x00\x00\x00\x00\x00"
+
+@pytest.fixture
+def model_450_response() -> bytearray:
+    """Steamist Controller Model 450 Response String"""
+    return b"MY450-6340     \r\n00-1E-C0-38-63-40\r\nMaster Bath\x00   \x00"
 
 @pytest_asyncio.fixture
 async def mock_discovery_aio_protocol():
@@ -41,7 +50,7 @@ async def mock_discovery_aio_protocol():
 
 
 @pytest.mark.asyncio
-async def test_async_scanner_specific_address(mock_discovery_aio_protocol):
+async def test_async_scanner_specific_address(mock_discovery_aio_protocol, model_450_response: bytearray):
     """Test scanner with a specific address."""
     scanner = AIODiscovery30303()
 
@@ -51,30 +60,7 @@ async def test_async_scanner_specific_address(mock_discovery_aio_protocol):
     )
     _, protocol = await mock_discovery_aio_protocol()
     protocol.datagram_received(
-        b"MY450-6340     \r\n00-1E-C0-38-63-40\r\nMaster Bath\x00   \x00",
-        ("192.168.213.252", 48899),
-    )
-    await task
-    assert scanner.found_devices == [
-        Device30303(
-            hostname="MY450-6340",
-            ipaddress="192.168.213.252",
-            mac="00:1E:C0:38:63:40",
-            name="Master Bath",
-            additional_data={},
-        )
-    ]
-
-
-@pytest.mark.asyncio
-async def test_async_scanner_broadcast(mock_discovery_aio_protocol):
-    """Test scanner with a broadcast."""
-    scanner = AIODiscovery30303()
-
-    task = asyncio.ensure_future(scanner.async_scan(timeout=0.01))
-    _, protocol = await mock_discovery_aio_protocol()
-    protocol.datagram_received(
-        b"MY450-6340     \r\n00-1E-C0-38-63-40\r\nMaster Bath\x00   \x00",
+        model_450_response,
         ("192.168.213.252", 48899),
     )
     await task
@@ -89,23 +75,75 @@ async def test_async_scanner_broadcast(mock_discovery_aio_protocol):
     ]
 
 @pytest.mark.asyncio
-async def test_async_scanner_broadcast_model550(mock_discovery_aio_protocol):
-    """Test scanner with a broadcast."""
+async def test_async_scanner_specific_address_2(mock_discovery_aio_protocol, model_550_response: bytearray):
+    """Test scanner with a specific address."""
     scanner = AIODiscovery30303()
 
-    task = asyncio.ensure_future(scanner.async_scan(timeout=0.01))
+    task = asyncio.ensure_future(
+        scanner.async_scan(timeout=3)
+    )
     _, protocol = await mock_discovery_aio_protocol()
     protocol.datagram_received(
-        b"STM 550 68F1145600-D0-CA-01-A9-41Master Bath\x00\x00\x00\x00\x00\x00\x00",
+        model_550_response,
         ("192.168.1.10", 48899),
     )
     await task
     status_data = {}
-    status_data["temperature"] = "68"
+    status_data["temperature"] = 68
     status_data["temp_unit"] = "F"
-    status_data["profile"] = "1"
-    status_data["minutesleft"] = "14"
-    status_data["secondsleft"] = "56"
+    status_data["profile"] = 1
+    status_data["minutesleft"] = 14
+    status_data["secondsleft"] = 56
+    assert scanner.found_devices == [
+        Device30303(
+            hostname="Unavailable",
+            ipaddress="192.168.1.10",
+            mac="00:D0:CA:01:A9:41",
+            name="Master Bath",
+            additional_data=status_data
+        )
+    ]
+
+@pytest.mark.asyncio
+async def test_async_scanner_broadcast(mock_discovery_aio_protocol, model_450_response: bytearray):
+    """Test scanner with a broadcast."""
+    scanner = AIODiscovery30303()
+
+    task = asyncio.ensure_future(scanner.async_scan(timeout=0.01))
+    _, protocol = await mock_discovery_aio_protocol()
+    protocol.datagram_received(
+        model_450_response,
+        ("192.168.213.252", 48899),
+    )
+    await task
+    assert scanner.found_devices == [
+        Device30303(
+            hostname="MY450-6340",
+            ipaddress="192.168.213.252",
+            mac="00:1E:C0:38:63:40",
+            name="Master Bath",
+            additional_data={},
+        )
+    ]
+
+@pytest.mark.asyncio
+async def test_async_scanner_broadcast_model550(mock_discovery_aio_protocol, model_550_response: bytearray):
+    """Test scanner with a broadcast."""
+    scanner = AIODiscovery30303()
+
+    task = asyncio.ensure_future(scanner.async_scan(timeout=0.01))
+    _, protocol = await mock_discovery_aio_protocol()
+    protocol.datagram_received(
+        model_550_response,
+        ("192.168.1.10", 48899),
+    )
+    await task
+    status_data = {}
+    status_data["temperature"] = 68
+    status_data["temp_unit"] = "F"
+    status_data["profile"] = 1
+    status_data["minutesleft"] = 14
+    status_data["secondsleft"] = 56
     assert scanner.found_devices == [
         Device30303(
             hostname="Unavailable",
