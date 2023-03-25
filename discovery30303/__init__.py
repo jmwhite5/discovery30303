@@ -18,11 +18,11 @@ class Device30303:
     """A device discovered via port 30303."""
 
     hostname: str
-    model: str
     mac: str
     ipaddress: str
     name: str
-    additional_data: Dict[str, str]
+    model: str = "Unknown"
+    additional_data: dict[str, str] = None
 
 
 def create_udp_socket(discovery_port: int) -> socket.socket:
