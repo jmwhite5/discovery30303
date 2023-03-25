@@ -11,6 +11,11 @@ __version__ = "0.2.1+jm3"
 
 
 MAX_UPDATES_WITHOUT_RESPONSE = 4
+MODEL_450_BYTES = b"MY450"
+MODEL_550_BYTES = b"STM 550"
+
+MODEL_450 = str(MODEL_450_BYTES, "ASCII")
+MODEL_550 = str(MODEL_550_BYTES, "ASCII")
 
 
 @dataclass
@@ -100,7 +105,7 @@ class AIODiscovery30303:
         if data is None or data == self.DISCOVER_MESSAGE:
             return False
 
-        if data[0:7] == b"STM 550":
+        if data[0:7] == MODEL_550_BYTES:
             # Model TSC 550
             status_data = {}
             status_data["temperature"] = int(data[7:10].decode("utf-8").strip())
