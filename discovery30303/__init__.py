@@ -80,9 +80,9 @@ class AIODiscovery30303:
     # DISCOVER_MESSAGE = b"Discovery: Who is out there?"
     DISCOVER_MESSAGE = b"stdisc"
     # For regular setup, use the local broadcast address
-    # BROADCAST_ADDRESS = "255.255.255.255"
+    BROADCAST_ADDRESS = "255.255.255.255"
     # For development in a container, use the directed broadcast address
-    BROADCAST_ADDRESS = "192.168.1.255"
+    # BROADCAST_ADDRESS = "192.168.1.255"
 
     def __init__(self) -> None:
         self.found_devices: List[Device30303] = []
